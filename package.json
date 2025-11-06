@@ -1,0 +1,119 @@
+{
+  "name": "tech-boss",
+  "displayName": "Tech Boss",
+  "description": "AI-powered code completion using Google Gemini",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Snippets"
+  ],
+  "keywords": [
+    "ai",
+    "code completion",
+    "gemini",
+    "copilot",
+    "autocomplete"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "tech-boss.triggerCompletion",
+        "title": "Gemini: Trigger Completion"
+      },
+      {
+        "command": "tech-boss.configure",
+        "title": "Gemini: Configure API Key"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "tech-boss.triggerCompletion",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Gemini Copilot",
+      "properties": {
+        "geminiCopilot.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google Gemini API Key",
+          "order": 1
+        },
+        "geminiCopilot.model": {
+          "type": "string",
+          "default": "gemini-pro",
+          "enum": [
+            "gemini-pro",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro"
+          ],
+          "description": "Gemini model to use",
+          "order": 2
+        },
+        "geminiCopilot.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Gemini Copilot",
+          "order": 3
+        },
+        "geminiCopilot.temperature": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Temperature for generation (0-1)",
+          "order": 4
+        },
+        "geminiCopilot.maxTokens": {
+          "type": "number",
+          "default": 256,
+          "description": "Maximum tokens to generate",
+          "order": 5
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.19.24",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^8.x",
+    "mocha": "^11.7.5",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.3"
+  },
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/gemini-copilot"
+  },
+  "license": "MIT"
+}
