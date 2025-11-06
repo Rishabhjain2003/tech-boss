@@ -1,16 +1,23 @@
-out
-dist
-node_modules
-.vscode-test/
-*.vsix
+# Compiled output
+out/
+*.js
+*.js.map
+!esbuild.js
+
+# But keep source files (TypeScript)
+!src/**/*.ts
+
 # Environment variables
 .env
-.env.local
+.env.*
 
-# VS Code settings with secrets
-.vscode/settings.json
+# VS Code
+.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
 
-# Build output
-out/
+# Dependencies
 node_modules/
+
+# Package files
 *.vsix
