@@ -1,71 +1,230 @@
-# gemini-copilot README
+```markdown
+# Tech Boss - AI-Powered Code Assistant
 
-This is the README for your extension "gemini-copilot". After writing up a brief description, we recommend including the following sections.
+Tech Boss is a Visual Studio Code extension that leverages Google's Gemini AI to help you modify and generate code intelligently. Simply describe what you want, and let AI do the heavy lifting!
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- 🤖 **AI-Powered Code Generation** - Use natural language to describe code changes
+- 📁 **Context-Aware** - Add files to context for better AI understanding
+- 👀 **Diff Preview** - Review changes before applying them
+- ✅ **Accept/Reject Changes** - Full control over what gets applied to your files
+- 🎨 **Clean Interface** - Intuitive sidebar panel for easy interaction
 
-For example if there is an image subfolder under your extension project workspace:
+## Prerequisites
 
-\!\[feature X\]\(images/feature-x.png\)
+- Visual Studio Code 1.85.0 or higher
+- Node.js 18.x or higher
+- Google Gemini API key ([Get one here](https://makersuite.google.com/app/apikey))
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## Installation
 
-## Requirements
+### From Source
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+1. Clone the repository:
+```
+git clone <your-repo-url>
+cd tech-boss
+```
 
-## Extension Settings
+2. Install dependencies:
+```
+npm install
+```
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+3. Compile the extension:
+```
+npm run compile
+```
 
-For example:
+4. Press `F5` to open a new VS Code window with the extension loaded
 
-This extension contributes the following settings:
+## Configuration
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
+2. Search for "Tech Boss"
+3. Configure the following settings:
 
-## Known Issues
+```
+{
+  "techBoss.apiKey": "your-gemini-api-key-here",
+  "techBoss.model": "gemini-2.0-flash-exp",
+  "techBoss.maxTokens": 2048,
+  "techBoss.temperature": 0.7
+}
+```
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+### Getting Your API Key
 
-## Release Notes
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy the key and paste it into VS Code settings
 
-Users appreciate release notes as you update your extension.
+## Usage
 
-### 1.0.0
+### Basic Workflow
 
-Initial release of ...
+1. **Open Tech Boss Panel**
+   - Click the Tech Boss icon in the Activity Bar (left sidebar)
+   - Or use Command Palette: `Tech Boss: Open Chat`
 
-### 1.0.1
+2. **Add Files to Context**
+   - Click "Add Files to Context" button
+   - Select the files you want to modify
+   - Files appear in the "Context Files" section
 
-Fixed issue #.
+3. **Generate Code**
+   - Type your request in the prompt box (e.g., "Add error handling to this function")
+   - Click "Generate Code"
+   - Wait for AI to analyze and generate changes
 
-### 1.1.0
+4. **Review Changes**
+   - Proposed changes appear in "Pending Changes" section
+   - Click "View Diff" to see exactly what will change
+   - Review the side-by-side comparison
 
-Added features X, Y, and Z.
+5. **Apply or Reject**
+   - Click "Accept" to apply changes to your file
+   - Click "Reject" to discard the changes
+
+### Example Prompts
+
+```
+"Add TypeScript type annotations to all functions"
+"Refactor this code to use async/await instead of callbacks"
+"Add error handling with try-catch blocks"
+"Convert this JavaScript to Python"
+"Add JSDoc comments to all public methods"
+"Optimize this function for better performance"
+```
+
+## Features in Detail
+
+### Context Management
+- Add multiple files for better AI understanding
+- Remove files from context with one click
+- Context persists during your session
+
+### Smart Code Parsing
+- Automatically detects code blocks in AI responses
+- Handles multiple programming languages
+- Preserves formatting and indentation
+
+### Diff Viewer
+- Side-by-side comparison of changes
+- Syntax highlighting
+- Clear visualization of additions and deletions
+
+## Development
+
+### Project Structure
+
+```
+tech-boss/
+├── src/
+│   ├── extension.ts          # Extension entry point
+│   ├── services/
+│   │   └── geminiClient.ts   # Gemini API integration
+│   └── providers/
+│       └── chatViewProvider.ts # Main UI and logic
+├── out/                      # Compiled JavaScript
+├── package.json              # Extension manifest
+└── tsconfig.json             # TypeScript config
+```
+
+### Build Commands
+
+```
+# Compile TypeScript
+npm run compile
+
+# Watch mode for development
+npm run watch
+
+# Run tests
+npm test
+
+# Package extension
+vsce package
+```
+
+### Debugging
+
+1. Press `F5` to launch Extension Development Host
+2. Set breakpoints in TypeScript files
+3. Use Debug Console for logging
+4. Check Output → Tech Boss for extension logs
+
+## Troubleshooting
+
+### "No code changes were generated"
+
+**Cause:** Gemini's response couldn't be parsed
+**Solution:** 
+- Check Debug Console for raw response
+- Try rephrasing your prompt
+- Ensure files are added to context
+
+### "Error: Invalid API Key"
+
+**Cause:** API key not configured or incorrect
+**Solution:**
+- Verify API key in settings
+- Get a new key from Google AI Studio
+- Restart VS Code after updating settings
+
+### Empty/Incomplete Responses
+
+**Cause:** Token limit too low
+**Solution:**
+- Increase `techBoss.maxTokens` in settings (try 2048 or 4096)
+- Break large changes into smaller requests
+
+## Configuration Options
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `techBoss.apiKey` | string | "" | Your Google Gemini API key |
+| `techBoss.model` | string | "gemini-2.0-flash-exp" | Gemini model to use |
+| `techBoss.maxTokens` | number | 2048 | Maximum tokens in response |
+| `techBoss.temperature` | number | 0.7 | Creativity level (0.0-1.0) |
+
+## Known Limitations
+
+- Currently supports single file modifications
+- Large files (>10k lines) may hit token limits
+- Complex multi-file refactoring requires multiple operations
+
+## Roadmap
+
+- [ ] Multi-file editing support
+- [ ] Chat history persistence
+- [ ] Custom prompt templates
+- [ ] Code snippet library
+- [ ] Integration with GitHub Copilot style inline suggestions
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - feel free to use this extension in your projects!
+
+## Support
+
+- 🐛 [Report Issues](https://github.com/your-username/tech-boss/issues)
+- 💡 [Feature Requests](https://github.com/your-username/tech-boss/issues/new)
+- 📧 Email: your-email@example.com
+
+## Acknowledgments
+
+- Built with [Google Gemini API](https://ai.google.dev/)
+- Inspired by GitHub Copilot and Cursor AI
+- VS Code Extension API documentation
 
 ---
 
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+**Made with ❤️ by Rishabh**
+```
