@@ -1,7 +1,7 @@
 {
   "name": "tech-boss",
   "displayName": "Tech Boss",
-  "description": "AI-powered code completion using Google Gemini",
+  "description": "AI-powered code assistant using Google Gemini",
   "version": "0.0.1",
   "publisher": "your-publisher-name",
   "engines": {
@@ -26,61 +26,80 @@
   "contributes": {
     "commands": [
       {
-        "command": "tech-boss.triggerCompletion",
-        "title": "Gemini: Trigger Completion"
+        "command": "techBoss.triggerCompletion",
+        "title": "Tech Boss: Trigger Completion"
       },
       {
-        "command": "tech-boss.configure",
-        "title": "Gemini: Configure API Key"
-      }
-    ],
-    "keybindings": [
+        "command": "techBoss.configure",
+        "title": "Tech Boss: Configure API Key"
+      },
       {
-        "command": "tech-boss.triggerCompletion",
-        "key": "ctrl+alt+c",
-        "mac": "cmd+alt+c",
-        "when": "editorTextFocus"
+        "command": "techBoss.openChat",
+        "title": "Tech Boss: Open Chat Panel",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "techBoss.clearContext",
+        "title": "Tech Boss: Clear Context"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tech-boss",
+          "title": "Tech Boss",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "tech-boss": [
+        {
+          "type": "webview",
+          "id": "techBoss.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
     "configuration": {
-      "title": "Gemini Copilot",
+      "title": "Tech Boss",
       "properties": {
-        "geminiCopilot.apiKey": {
+        "techBoss.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Google Gemini API Key",
-          "order": 1
+          "description": "Google Gemini API Key"
         },
-        "geminiCopilot.model": {
+        "techBoss.model": {
           "type": "string",
-          "default": "gemini-pro",
+          "default": "gemini-2.0-flash-exp",
           "enum": [
-            "gemini-pro",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro"
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-flash-002",
+            "gemini-1.5-pro-002"
           ],
-          "description": "Gemini model to use",
-          "order": 2
+          "enumDescriptions": [
+            "Gemini 2.0 Flash (Experimental) - Fastest, latest model",
+            "Gemini 1.5 Flash - Stable, fast generation",
+            "Gemini 1.5 Pro - Stable, advanced reasoning"
+          ],
+          "description": "Gemini model to use"
         },
-        "geminiCopilot.enabled": {
+        "techBoss.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable/disable Gemini Copilot",
-          "order": 3
+          "description": "Enable/disable Tech Boss"
         },
-        "geminiCopilot.temperature": {
+        "techBoss.temperature": {
           "type": "number",
           "default": 0.2,
           "minimum": 0,
           "maximum": 1,
-          "description": "Temperature for generation (0-1)",
-          "order": 4
+          "description": "Temperature for generation (0-1)"
         },
-        "geminiCopilot.maxTokens": {
+        "techBoss.maxTokens": {
           "type": "number",
           "default": 256,
-          "description": "Maximum tokens to generate",
-          "order": 5
+          "description": "Maximum tokens to generate"
         }
       }
     }
@@ -91,29 +110,20 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^20.19.24",
+    "@types/node": "^20.10.0",
     "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^6.x",
-    "@typescript-eslint/parser": "^6.x",
-    "@vscode/test-electron": "^2.5.2",
-    "eslint": "^8.x",
-    "mocha": "^11.7.5",
-    "typescript": "^5.9.3"
+    "@types/mocha": "^10.0.6",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
-    "axios": "^1.6.0",
-    "dotenv": "^17.2.3"
-  },
-  "icon": "resources/icon.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/gemini-copilot"
-  },
-  "license": "MIT"
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  }
 }

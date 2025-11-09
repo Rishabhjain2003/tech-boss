@@ -3,20 +3,26 @@ dotenv.config();
 
 import * as vscode from 'vscode';
 import { GeminiCompletionProvider } from './providers/completionProvider';
+import { ChatViewProvider } from './providers/chatViewProvider';
+import { GeminiClient } from './services/geminiClient';
 
 let completionProvider: vscode.Disposable | undefined;
 let statusBarItem: vscode.StatusBarItem;
+let chatViewProvider: ChatViewProvider;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Gemini Copilot is now active');
+    console.log('Tech Boss is now active');
+
+    // Create Gemini client (shared between completion and chat)
+    const geminiClient = new GeminiClient();
 
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Right,
         100
     );
-    statusBarItem.text = "$(sparkle) Gemini";
-    statusBarItem.tooltip = "Gemini Copilot is active";
+    statusBarItem.text = "$(sparkle) Tech Boss";
+    statusBarItem.tooltip = "Tech Boss is active";
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
@@ -28,16 +34,23 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(completionProvider);
 
-    // Register manual trigger command
+    // Register chat view provider
+    chatViewProvider = new ChatViewProvider(context.extensionUri, geminiClient);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            ChatViewProvider.viewType,
+            chatViewProvider
+        )
+    );
+
+    // Register commands
     const triggerCommand = vscode.commands.registerCommand(
-        'tech-boss.triggerCompletion',
+        'techBoss.triggerCompletion',
         async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) {
                 return;
             }
-            
-            // Trigger InlineCompletionProvider manually
             await vscode.commands.executeCommand(
                 'editor.action.inlineSuggest.trigger'
             );
@@ -45,9 +58,8 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(triggerCommand);
 
-    // Register configure command
     const configureCommand = vscode.commands.registerCommand(
-        'tech-boss.configure',
+        'techBoss.configure',
         async () => {
             const apiKey = await vscode.window.showInputBox({
                 prompt: 'Enter your Google Gemini API Key',
@@ -57,24 +69,40 @@ export function activate(context: vscode.ExtensionContext) {
             });
 
             if (apiKey) {
-                await vscode.workspace.getConfiguration('geminiCopilot')
+                await vscode.workspace.getConfiguration('techBoss')
                     .update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage(
                     'Gemini API key configured successfully!'
                 );
-                statusBarItem.text = "$(sparkle) Gemini (Ready)";
+                statusBarItem.text = "$(sparkle) Tech Boss (Ready)";
             }
         }
     );
     context.subscriptions.push(configureCommand);
 
+    const openChatCommand = vscode.commands.registerCommand(
+        'techBoss.openChat',
+        () => {
+            vscode.commands.executeCommand('workbench.view.extension.tech-boss');
+        }
+    );
+    context.subscriptions.push(openChatCommand);
+
+    const clearContextCommand = vscode.commands.registerCommand(
+        'techBoss.clearContext',
+        () => {
+            chatViewProvider.clearContext();
+            vscode.window.showInformationMessage('Context cleared');
+        }
+    );
+    context.subscriptions.push(clearContextCommand);
+
     // Check if API key is configured
     checkApiKeyConfiguration();
 
-    // Listen for configuration changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('geminiCopilot')) {
+            if (e.affectsConfiguration('techBoss')) {
                 checkApiKeyConfiguration();
             }
         })
@@ -82,29 +110,20 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function checkApiKeyConfiguration() {
-    const config = vscode.workspace.getConfiguration('geminiCopilot');
+    const config = vscode.workspace.getConfiguration('techBoss');
     const apiKey = config.get<string>('apiKey');
     const enabled = config.get<boolean>('enabled');
 
     if (!apiKey || apiKey.trim() === '') {
-        statusBarItem.text = "$(warning) Gemini (No API Key)";
+        statusBarItem.text = "$(warning) Tech Boss (No API Key)";
         statusBarItem.tooltip = "Click to configure Gemini API key";
-        statusBarItem.command = 'tech-boss.configure';
-        
-        vscode.window.showWarningMessage(
-            'Gemini Copilot: API key not configured',
-            'Configure'
-        ).then(selection => {
-            if (selection === 'Configure') {
-                vscode.commands.executeCommand('tech-boss.configure');
-            }
-        });
+        statusBarItem.command = 'techBoss.configure';
     } else if (!enabled) {
-        statusBarItem.text = "$(circle-slash) Gemini (Disabled)";
-        statusBarItem.tooltip = "Gemini Copilot is disabled";
+        statusBarItem.text = "$(circle-slash) Tech Boss (Disabled)";
+        statusBarItem.tooltip = "Tech Boss is disabled";
     } else {
-        statusBarItem.text = "$(sparkle) Gemini";
-        statusBarItem.tooltip = "Gemini Copilot is active";
+        statusBarItem.text = "$(sparkle) Tech Boss";
+        statusBarItem.tooltip = "Tech Boss is active";
         statusBarItem.command = undefined;
     }
 }
@@ -116,5 +135,5 @@ export function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
     }
-    console.log('Gemini Copilot is now deactivated');
+    console.log('Tech Boss is now deactivated');
 }

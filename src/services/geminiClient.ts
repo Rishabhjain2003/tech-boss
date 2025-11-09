@@ -29,14 +29,14 @@ interface GeminiResponse {
 export class GeminiClient {
     private baseURL = 'https://generativelanguage.googleapis.com/v1beta';
     private apiKey: string = '';
-    private model: string = 'gemini-pro';
+    private model: string = 'gemini-2.0-flash-exp';  // ← Updated default
 
     constructor() {
         this.loadConfiguration();
     }
 
     private loadConfiguration() {
-        const config = vscode.workspace.getConfiguration('geminiCopilot');
+        const config = vscode.workspace.getConfiguration('techBoss');
         
         // Try to get API key from VS Code settings first
         this.apiKey = config.get<string>('apiKey', '');
@@ -46,7 +46,8 @@ export class GeminiClient {
             this.apiKey = process.env.GEMINI_API_KEY || '';
         }
         
-        this.model = config.get<string>('model', 'gemini-pro');
+        // Get model with new default
+        this.model = config.get<string>('model', 'gemini-2.0-flash-exp');
     }
 
     async getCompletion(prompt: string, signal?: AbortSignal): Promise<string> {
@@ -56,7 +57,7 @@ export class GeminiClient {
             throw new Error('API key not configured');
         }
 
-        const config = vscode.workspace.getConfiguration('geminiCopilot');
+        const config = vscode.workspace.getConfiguration('techBoss');
         const temperature = config.get<number>('temperature', 0.2);
         const maxTokens = config.get<number>('maxTokens', 256);
 
@@ -116,9 +117,12 @@ export class GeminiClient {
                     const data: any = axiosError.response.data;
 
                     if (status === 400) {
-                        throw new Error('Invalid request to Gemini API');
+                        // Include detailed error message for debugging
+                        throw new Error(`Invalid request: ${data?.error?.message || 'Unknown error'}`);
                     } else if (status === 401 || status === 403) {
                         throw new Error('API key is invalid or unauthorized');
+                    } else if (status === 404) {
+                        throw new Error(`Model not found: ${this.model}. Try updating to a newer model.`);
                     } else if (status === 429) {
                         throw new Error('Rate limit exceeded. Please try again later.');
                     } else if (status >= 500) {
