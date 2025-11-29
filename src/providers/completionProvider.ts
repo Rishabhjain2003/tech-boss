@@ -69,7 +69,6 @@ export class GeminiCompletionProvider implements vscode.InlineCompletionItemProv
             // Get completion from Gemini
             const rawCompletion = await this.geminiClient.getCompletion(
                 prompt,
-                this.lastRequest.signal
             );
 
             if (!rawCompletion || token.isCancellationRequested) {

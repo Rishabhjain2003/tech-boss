@@ -41,6 +41,34 @@
       {
         "command": "techBoss.clearContext",
         "title": "Tech Boss: Clear Context"
+      },
+      {
+        "command": "techBoss.addSelection",
+        "title": "Tech Boss: Add Selection to Context",
+        "icon": "$(add)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "techBoss.addSelection",
+          "when": "editorHasSelection",
+          "group": "9_cutcopypaste"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "techBoss.addSelection",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "techBoss.addSelection",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "editorTextFocus && editorHasSelection"
       }
     ],
     "viewsContainers": {
@@ -98,7 +126,7 @@
         },
         "techBoss.maxTokens": {
           "type": "number",
-          "default": 256,
+          "default": 2048,
           "description": "Maximum tokens to generate"
         }
       }

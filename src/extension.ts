@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { GeminiCompletionProvider } from './providers/completionProvider';
 import { ChatViewProvider } from './providers/chatViewProvider';
 import { GeminiClient } from './services/geminiClient';
@@ -107,6 +108,39 @@ export function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+
+    const addSelectionCommand = vscode.commands.registerCommand('techBoss.addSelection', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor');
+            return;
+        }
+
+        const selection = editor.selection;
+        if (selection.isEmpty) {
+            vscode.window.showErrorMessage('No text selected');
+            return;
+        }
+
+        const selectedText = editor.document.getText(selection);
+        const fileName = path.basename(editor.document.fileName);
+        
+        // Send to chat view
+        chatViewProvider.addSelectionToContext({
+            path: editor.document.fileName,
+            content: selectedText,
+            fileName: fileName,
+            isSelection: true,
+            selectionRange: {
+                start: editor.document.offsetAt(selection.start),
+                end: editor.document.offsetAt(selection.end)
+            }
+        });
+
+        vscode.window.showInformationMessage(`Added ${selectedText.split('\n').length} lines to context`);
+    });
+
+    context.subscriptions.push(addSelectionCommand);
 }
 
 function checkApiKeyConfiguration() {

@@ -5,6 +5,11 @@ import { GeminiClient } from '../services/geminiClient';
 interface SelectedFile {
     path: string;
     content: string;
+    isSelection?: boolean;  // NEW: Mark if it's a selection
+    selectionRange?: {      // NEW: Store selection range
+        start: number;
+        end: number;
+    };
 }
 
 interface GeneratedChange {
@@ -62,10 +67,46 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 case 'viewDiff':
                     await this.viewDiff(data.filePath);
                     break;
+                case 'addSelection':
+                    vscode.commands.executeCommand('techBoss.addSelection');
+                    break;
             }
         });
 
         // Update webview with initial state
+        this.updateWebview();
+    }
+
+    public addSelectionToContext(selection: {
+        path: string;
+        content: string;
+        fileName: string;
+        isSelection: boolean;
+        selectionRange: { start: number; end: number };
+    }) {
+        // Check if selection from same file already exists
+        const existingIndex = this.selectedFiles.findIndex(
+            f => f.path === selection.path && f.isSelection
+        );
+
+        if (existingIndex >= 0) {
+            // Replace existing selection
+            this.selectedFiles[existingIndex] = {
+                path: selection.path,
+                content: selection.content,
+                isSelection: true,
+                selectionRange: selection.selectionRange
+            };
+        } else {
+            // Add new selection
+            this.selectedFiles.push({
+                path: selection.path,
+                content: selection.content,
+                isSelection: true,
+                selectionRange: selection.selectionRange
+            });
+        }
+
         this.updateWebview();
     }
 
@@ -161,50 +202,33 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private buildContextPrompt(userPrompt: string): string {
         let prompt = `You are a code modification assistant. Given the following files and a user request, generate the necessary code changes.
 
-User Request: ${userPrompt}
+    User Request: ${userPrompt}
 
-Context Files:
-`;
+    Context Files:
+    `;
 
         for (const file of this.selectedFiles) {
             const fileName = path.basename(file.path);
-            prompt += `\n--- File: ${fileName} ---\n`;
+            const label = file.isSelection ? `Selected Code from ${fileName}` : `File: ${fileName}`;
+            
+            prompt += `\n--- ${label} ---\n`;
             prompt += file.content;
-            prompt += `\n--- End of ${fileName} ---\n`;
+            prompt += `\n--- End of ${label} ---\n`;
         }
 
         prompt += `\n\nIMPORTANT: Format your response EXACTLY as shown below:
 
-FILE: <filename>
-OLD:
-\`\`\`<language>
-<complete original code from the file>
-\`\`\`
-NEW:
-\`\`\`<language>
-<complete new code to replace it>
-\`\`\`
+    FILE: <filename>
+    OLD:
+    \`\`\`<language>
+    <code to be replaced>
+    \`\`\`
+    NEW:
+    \`\`\`<language>
+    <new code>
+    \`\`\`
 
-RULES:
-1. Use ONLY the filename (e.g., "multiply.py"), NOT the full path
-2. Include the COMPLETE file content in both OLD and NEW blocks
-3. The OLD code must match the file EXACTLY (same indentation, spacing, etc.)
-4. Specify the language in code blocks (python, javascript, typescript, etc.)
-
-Example:
-FILE: example.py
-OLD:
-\`\`\`python
-def old_function():
-    return 1
-\`\`\`
-NEW:
-\`\`\`python
-def new_function():
-    return 2
-\`\`\`
-
-Generate the changes now:`;
+    Generate the changes now:`;
 
         return prompt;
     }
@@ -463,7 +487,9 @@ Generate the changes now:`;
                 type: 'update',
                 selectedFiles: this.selectedFiles.map(f => ({
                     path: f.path,
-                    name: path.basename(f.path)
+                    name: path.basename(f.path),
+                    isSelection: f.isSelection || false,  // NEW
+                    lineCount: f.content.split('\n').length  // NEW
                 })),
                 pendingChanges: this.pendingChanges.map(c => ({
                     filePath: c.filePath,
@@ -628,6 +654,20 @@ Generate the changes now:`;
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
         }
+        .badge {
+            display: inline-block;
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 6px;
+        }
+        .line-count {
+            color: var(--vscode-descriptionForeground);
+            font-size: 11px;
+            margin-left: 6px;
+        }
     </style>
 </head>
 <body>
@@ -646,6 +686,19 @@ Generate the changes now:`;
     <div class="section">
         <div class="section-title">Pending Changes</div>
         <div id="changesList"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Context Files</div>
+        <div id="fileList" class="file-list"></div>
+        <div style="display: flex; gap: 6px;">
+            <button class="add-files-btn" onclick="addFiles()" style="flex: 1;">
+                + Add Files
+            </button>
+            <button class="add-files-btn" onclick="addSelection()" style="flex: 1;">
+                + Add Selection
+            </button>
+        </div>
     </div>
 
     <div id="loadingIndicator" class="loading" style="display: none;">
@@ -693,7 +746,11 @@ Generate the changes now:`;
             
             fileList.innerHTML = state.selectedFiles.map(file => \`
                 <div class="file-item">
-                    <span class="file-name" title="\${file.path}">\${file.name}</span>
+                    <span class="file-name" title="\${file.path}">
+                        \${file.name}
+                        \${file.isSelection ? '<span class="badge">Selection</span>' : ''}
+                        <span class="line-count">\${file.lineCount} lines</span>
+                    </span>
                     <button class="remove-btn" onclick="removeFile('\${file.path}')">✕</button>
                 </div>
             \`).join('');
@@ -749,6 +806,10 @@ Generate the changes now:`;
 
         function rejectChange(filePath) {
             vscode.postMessage({ type: 'rejectChange', filePath });
+        }
+        
+        function addSelection() {
+            vscode.postMessage({ type: 'addSelection' });
         }
 
         renderUI();

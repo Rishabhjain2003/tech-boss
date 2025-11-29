@@ -29,7 +29,8 @@ interface GeminiResponse {
 export class GeminiClient {
     private baseURL = 'https://generativelanguage.googleapis.com/v1beta';
     private apiKey: string = '';
-    private model: string = 'gemini-2.0-flash-exp';  // ← Updated default
+    private model: string = 'gemini-2.0-flash-exp';
+    private rateLimitedUntil: number = 0;  // ✅ NEW: Track cooldown
 
     constructor() {
         this.loadConfiguration();
@@ -50,92 +51,141 @@ export class GeminiClient {
         this.model = config.get<string>('model', 'gemini-2.0-flash-exp');
     }
 
-    async getCompletion(prompt: string, signal?: AbortSignal): Promise<string> {
-        this.loadConfiguration(); // Reload config for each request
-
-        if (!this.apiKey || this.apiKey.trim() === '') {
-            throw new Error('API key not configured');
+    async getCompletion(prompt: string, retryCount = 0, signal?: AbortSignal): Promise<string> {
+        // ✅ NEW: Check if we're in cooldown period
+        const now = Date.now();
+        if (now < this.rateLimitedUntil) {
+            const waitSeconds = Math.ceil((this.rateLimitedUntil - now) / 1000);
+            throw new Error(`⏳ Rate limited. Please wait ${waitSeconds} more seconds.`);
         }
 
         const config = vscode.workspace.getConfiguration('techBoss');
-        const temperature = config.get<number>('temperature', 0.2);
-        const maxTokens = config.get<number>('maxTokens', 256);
+        const apiKey = config.get<string>('apiKey');
+        const model = config.get<string>('model', 'gemini-2.0-flash-exp');
+        const temperature = config.get<number>('temperature', 0.7);
+        const maxTokens = config.get<number>('maxTokens', 2048);
 
-        const requestBody: GeminiRequest = {
-            contents: [
-                {
-                    parts: [
-                        {
-                            text: prompt
-                        }
-                    ]
-                }
-            ],
-            generationConfig: {
-                temperature: temperature,
-                maxOutputTokens: maxTokens,
-                topP: 0.95,
-                topK: 40
-            }
-        };
+        if (!apiKey || apiKey.trim() === '') {
+            throw new Error('Gemini API key not configured. Run "Tech Boss: Configure API Key" command.');
+        }
 
         try {
-            const response = await axios.post<GeminiResponse>(
-                `${this.baseURL}/models/${this.model}:generateContent?key=${this.apiKey}`,
-                requestBody,
+            const response = await axios.post(
+                `${this.baseURL}/models/${model}:generateContent?key=${apiKey}`,
                 {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    timeout: 10000, // 10 second timeout
-                    signal: signal
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }],
+                    generationConfig: {
+                        temperature,
+                        maxOutputTokens: maxTokens,
+                        topP: 0.95,
+                        topK: 40
+                    }
+                },
+                {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 30000,
+                    signal: signal  // ✅ NEW: Support abort
                 }
             );
 
+            // ✅ Better validation
             if (!response.data.candidates || response.data.candidates.length === 0) {
-                throw new Error('No completion generated');
+                throw new Error('No response generated from Gemini');
             }
 
             const candidate = response.data.candidates[0];
             
+            // ✅ Check for safety blocks
+            if (candidate.finishReason === 'SAFETY') {
+                throw new Error('Content was blocked by safety filters');
+            }
+
             if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
-                throw new Error('Invalid response format');
+                throw new Error('Empty response from Gemini');
             }
 
             return candidate.content.parts[0].text;
 
-        } catch (error) {
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError;
-                
-                if (axiosError.code === 'ECONNABORTED' || signal?.aborted) {
-                    throw new Error('Request aborted');
-                }
-
-                if (axiosError.response) {
-                    const status = axiosError.response.status;
-                    const data: any = axiosError.response.data;
-
-                    if (status === 400) {
-                        // Include detailed error message for debugging
-                        throw new Error(`Invalid request: ${data?.error?.message || 'Unknown error'}`);
-                    } else if (status === 401 || status === 403) {
-                        throw new Error('API key is invalid or unauthorized');
-                    } else if (status === 404) {
-                        throw new Error(`Model not found: ${this.model}. Try updating to a newer model.`);
-                    } else if (status === 429) {
-                        throw new Error('Rate limit exceeded. Please try again later.');
-                    } else if (status >= 500) {
-                        throw new Error('Gemini API server error. Please try again later.');
-                    }
-
-                    throw new Error(data?.error?.message || 'Gemini API error');
-                }
-
-                throw new Error('Network error: Unable to reach Gemini API');
+        } catch (error: any) {
+            // ✅ Check if request was cancelled
+            if (signal?.aborted || error.code === 'ERR_CANCELED') {
+                throw new Error('Request cancelled');
             }
 
-            throw error;
+            // ✅ IMPROVED: Handle rate limiting
+            if (error.response?.status === 429) {
+                // Set cooldown for 90 seconds
+                this.rateLimitedUntil = Date.now() + 90000;
+                
+                console.log('⚠️ Rate limit hit. Cooldown set for 90 seconds.');
+                
+                // Only retry ONCE after waiting full 90 seconds
+                if (retryCount === 0) {
+                    vscode.window.showWarningMessage(
+                        `⚠️ Rate limit exceeded. Waiting 90 seconds before retry...`,
+                        'Cancel'
+                    );
+                    
+                    await new Promise(resolve => setTimeout(resolve, 90000));
+                    
+                    // Clear cooldown and retry
+                    this.rateLimitedUntil = 0;
+                    console.log('Retrying after 90 second cooldown...');
+                    
+                    return this.getCompletion(prompt, retryCount + 1, signal);
+                }
+                
+                // If still rate limited after retry, give up
+                throw new Error('⚠️ Still rate limited. Please wait 2-3 minutes and try again.');
+            }
+
+            // ✅ Better error handling for other statuses
+            if (error.response) {
+                const status = error.response.status;
+                const errorData = error.response.data;
+
+                switch (status) {
+                    case 400:
+                        throw new Error('Invalid request. Please check your prompt.');
+                    case 401:
+                        throw new Error('🔑 Invalid API key. Please reconfigure.');
+                    case 403:
+                        throw new Error('API access forbidden. Check your API key permissions.');
+                    case 500:
+                    case 503:
+                        throw new Error('Gemini service temporarily unavailable. Try again later.');
+                    default:
+                        throw new Error(`API error (${status}): ${errorData?.error?.message || 'Unknown error'}`);
+                }
+            }
+
+            // Network errors
+            if (error.code === 'ECONNABORTED') {
+                throw new Error('Request timed out. Please try again.');
+            }
+
+            if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+                throw new Error('Network error. Check your internet connection.');
+            }
+
+            throw new Error(`Failed to get completion: ${error.message}`);
         }
+    }
+
+    // ✅ NEW: Public method to check cooldown status
+    public getRateLimitCooldown(): number {
+        const now = Date.now();
+        if (now < this.rateLimitedUntil) {
+            return Math.ceil((this.rateLimitedUntil - now) / 1000);
+        }
+        return 0;
+    }
+
+    // ✅ NEW: Public method to clear cooldown (useful for testing)
+    public clearCooldown(): void {
+        this.rateLimitedUntil = 0;
+        console.log('Cooldown cleared manually');
     }
 }
