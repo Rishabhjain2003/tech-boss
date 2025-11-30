@@ -80,31 +80,73 @@ export class GeminiClient {
         };
 
         try {
-            const response = await axios.post<GeminiResponse>(
+            const response = await axios.post(
                 `${this.baseURL}/models/${this.model}:generateContent?key=${this.apiKey}`,
-                requestBody,
                 {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    timeout: 10000, // 10 second timeout
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }],
+                    generationConfig: {
+                        temperature,
+                        maxOutputTokens: maxTokens,
+                        topP: 0.95,
+                        topK: 40
+                    }
+                },
+                {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 30000,
                     signal: signal
                 }
             );
 
+            // ✅ Better validation
+            if (!response.data) {
+                console.error('No response data from Gemini');
+                throw new Error('Empty response from Gemini API');
+            }
+
             if (!response.data.candidates || response.data.candidates.length === 0) {
-                throw new Error('No completion generated');
+                console.error('Response data:', JSON.stringify(response.data, null, 2));
+                
+                // Check for specific error conditions
+                if (response.data.error) {
+                    throw new Error(`Gemini API Error: ${response.data.error.message}`);
+                }
+                
+                throw new Error('No candidates in response. The model may have blocked the content.');
             }
 
             const candidate = response.data.candidates[0];
             
-            if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
-                throw new Error('Invalid response format');
+            // ✅ Check for safety/content blocks
+            if (candidate.finishReason === 'SAFETY') {
+                throw new Error('Content was blocked by safety filters');
+            }
+            
+            if (candidate.finishReason === 'RECITATION') {
+                throw new Error('Content blocked due to recitation concerns');
             }
 
-            return candidate.content.parts[0].text;
+            if (!candidate.content) {
+                console.error('Candidate:', JSON.stringify(candidate, null, 2));
+                throw new Error('No content in candidate. Finish reason: ' + (candidate.finishReason || 'unknown'));
+            }
 
-        } catch (error) {
+            if (!candidate.content.parts || candidate.content.parts.length === 0) {
+                console.error('Content:', JSON.stringify(candidate.content, null, 2));
+                throw new Error('No parts in content');
+            }
+
+            const text = candidate.content.parts[0].text;
+            
+            if (!text || text.trim().length === 0) {
+                throw new Error('Empty text in response');
+            }
+
+            return text;
+
+        } catch (error: any) {
             if (axios.isAxiosError(error)) {
                 const axiosError = error as AxiosError;
                 

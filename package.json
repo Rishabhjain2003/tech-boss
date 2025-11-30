@@ -100,7 +100,7 @@
         },
         "techBoss.maxTokens": {
           "type": "number",
-          "default": 256,
+          "default": 2048,
           "description": "Maximum tokens to generate"
         }
       }

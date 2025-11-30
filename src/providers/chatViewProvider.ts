@@ -482,155 +482,309 @@ Generate the changes now:`;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tech Boss Chat</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            padding: 10px;
+            padding: 16px;
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
+            background: var(--vscode-sideBar-background);
+            margin: 0;
         }
+
         .section {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
+
         .section-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: var(--vscode-descriptionForeground);
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 12px;
+            color: var(--vscode-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
         .file-list {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
+
         .file-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 6px 8px;
-            margin-bottom: 4px;
-            background: var(--vscode-input-background);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 3px;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            background: var(--vscode-list-hoverBackground);
+            border: 1px solid var(--vscode-widget-border);
+            border-radius: 6px;
+            transition: all 0.2s ease;
         }
+
+        .file-item:hover {
+            background: var(--vscode-list-activeSelectionBackground);
+            border-color: var(--vscode-focusBorder);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
         .file-name {
             flex: 1;
+            font-size: 13px;
+            font-weight: 500;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 12px;
+            color: var(--vscode-foreground);
         }
+
         .remove-btn {
-            background: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            border: none;
-            padding: 2px 8px;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            border: 1px solid var(--vscode-widget-border);
+            padding: 4px 10px;
             cursor: pointer;
-            border-radius: 2px;
+            border-radius: 4px;
             font-size: 11px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-left: 8px;
         }
+
         .remove-btn:hover {
             background: var(--vscode-button-secondaryHoverBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border-color: var(--vscode-button-secondaryForeground);
         }
+
         .add-files-btn {
             width: 100%;
-            padding: 8px;
+            padding: 10px 16px;
             background: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
             border: none;
             cursor: pointer;
-            border-radius: 3px;
-            margin-bottom: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
         }
+
         .add-files-btn:hover {
             background: var(--vscode-button-hoverBackground);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
+
+        .add-files-btn:active {
+            transform: translateY(0);
+        }
+
         textarea {
             width: 100%;
-            min-height: 100px;
-            padding: 8px;
+            min-height: 120px;
+            padding: 12px;
             background: var(--vscode-input-background);
             color: var(--vscode-input-foreground);
             border: 1px solid var(--vscode-input-border);
-            border-radius: 3px;
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
+            border-radius: 6px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 13px;
             resize: vertical;
+            line-height: 1.5;
+            transition: border-color 0.2s ease;
         }
+
         textarea:focus {
-            outline: 1px solid var(--vscode-focusBorder);
+            outline: none;
+            border-color: var(--vscode-focusBorder);
+            box-shadow: 0 0 0 2px var(--vscode-focusBorder);
         }
+
+        textarea::placeholder {
+            color: var(--vscode-input-placeholderForeground);
+        }
+
         .generate-btn {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             background: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
             border: none;
             cursor: pointer;
-            border-radius: 3px;
-            margin-top: 10px;
-            font-weight: bold;
+            border-radius: 6px;
+            margin-top: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
         }
+
         .generate-btn:hover {
             background: var(--vscode-button-hoverBackground);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
+
         .generate-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
+
+        .generate-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
         .change-item {
-            padding: 10px;
-            margin-bottom: 8px;
+            padding: 14px;
+            margin-bottom: 10px;
             background: var(--vscode-editor-background);
             border: 1px solid var(--vscode-panel-border);
-            border-radius: 3px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
         }
+
+        .change-item:hover {
+            border-color: var(--vscode-focusBorder);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
         .change-header {
-            font-weight: bold;
-            margin-bottom: 6px;
-        }
-        .change-summary {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
+            font-weight: 600;
+            font-size: 13px;
             margin-bottom: 8px;
+            color: var(--vscode-foreground);
         }
+
+        .change-summary {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 12px;
+            padding: 6px 10px;
+            background: var(--vscode-textCodeBlock-background);
+            border-radius: 4px;
+            font-family: var(--vscode-editor-font-family);
+        }
+
         .change-actions {
             display: flex;
-            gap: 6px;
+            gap: 8px;
         }
+
         .action-btn {
             flex: 1;
-            padding: 6px;
+            padding: 8px 12px;
             border: none;
             cursor: pointer;
-            border-radius: 3px;
+            border-radius: 5px;
             font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-align: center;
         }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
         .view-btn {
             background: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
         }
-        .accept-btn {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
+
+        .view-btn:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
         }
-        .reject-btn {
-            background: var(--vscode-errorForeground);
+
+        .accept-btn {
+            background: #28a745;
             color: white;
         }
-        .action-btn:hover {
-            opacity: 0.8;
+
+        .accept-btn:hover {
+            background: #218838;
         }
+
+        .reject-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .reject-btn:hover {
+            background: #c82333;
+        }
+
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 32px 20px;
             color: var(--vscode-descriptionForeground);
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
         }
+
+        .loading::before {
+            content: "";
+            display: block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--vscode-progressBar-background);
+            border-top-color: var(--vscode-button-background);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .empty-state {
             text-align: center;
-            padding: 20px;
+            padding: 24px 20px;
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
+            background: var(--vscode-textCodeBlock-background);
+            border-radius: 6px;
+            border: 1px dashed var(--vscode-widget-border);
+        }
+
+        .empty-state::before {
+            content: "📁";
+            display: block;
+            font-size: 32px;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--vscode-scrollbarSlider-background);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--vscode-scrollbarSlider-hoverBackground);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--vscode-scrollbarSlider-activeBackground);
         }
     </style>
-</head>
-<body>
+    </head>
+    <body>
     <div class="section">
         <div class="section-title">Context Files</div>
         <div id="fileList" class="file-list"></div>
