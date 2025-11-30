@@ -99,14 +99,16 @@
         },
         "techBoss.model": {
           "type": "string",
-          "default": "gemini-2.0-flash-exp",
+          "default": "gemini-2.5-flash",
           "enum": [
+            "gemini-2.5-flash",
             "gemini-2.0-flash-exp",
             "gemini-1.5-flash-002",
             "gemini-1.5-pro-002"
           ],
           "enumDescriptions": [
-            "Gemini 2.0 Flash (Experimental) - Fastest, latest model",
+            "Gemini 2.5 Flash - Latest, fastest model with free quota",
+            "Gemini 2.0 Flash (Experimental) - May have zero free quota",
             "Gemini 1.5 Flash - Stable, fast generation",
             "Gemini 1.5 Pro - Stable, advanced reasoning"
           ],
