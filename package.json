@@ -1,8 +1,8 @@
 {
   "name": "tech-boss",
   "displayName": "Tech Boss",
-  "description": "AI-powered code assistant using Google Gemini",
-  "version": "0.0.1",
+  "description": "AI Agent powered by Google Gemini — reads files, edits code, runs commands, and more",
+  "version": "0.1.0",
   "publisher": "your-publisher-name",
   "engines": {
     "vscode": "^1.85.0"
@@ -14,9 +14,10 @@
   ],
   "keywords": [
     "ai",
-    "code completion",
+    "agent",
     "gemini",
     "copilot",
+    "code assistant",
     "autocomplete"
   ],
   "activationEvents": [
@@ -35,40 +36,12 @@
       },
       {
         "command": "techBoss.openChat",
-        "title": "Tech Boss: Open Chat Panel",
+        "title": "Tech Boss: Open Agent Panel",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "techBoss.clearContext",
-        "title": "Tech Boss: Clear Context"
-      },
-      {
-        "command": "techBoss.addSelection",
-        "title": "Tech Boss: Add Selection to Context",
-        "icon": "$(add)"
-      }
-    ],
-    "menus": {
-      "editor/context": [
-        {
-          "command": "techBoss.addSelection",
-          "when": "editorHasSelection",
-          "group": "9_cutcopypaste"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "techBoss.addSelection",
-          "when": "editorHasSelection"
-        }
-      ]
-    },
-    "keybindings": [
-      {
-        "command": "techBoss.addSelection",
-        "key": "ctrl+shift+t",
-        "mac": "cmd+shift+t",
-        "when": "editorTextFocus && editorHasSelection"
+        "command": "techBoss.newChat",
+        "title": "Tech Boss: New Chat"
       }
     ],
     "viewsContainers": {
@@ -85,7 +58,7 @@
         {
           "type": "webview",
           "id": "techBoss.chatView",
-          "name": "Chat"
+          "name": "Agent"
         }
       ]
     },
@@ -102,15 +75,15 @@
           "default": "gemini-2.5-flash",
           "enum": [
             "gemini-2.5-flash",
-            "gemini-2.0-flash-exp",
+            "gemini-2.0-flash",
             "gemini-1.5-flash-002",
             "gemini-1.5-pro-002"
           ],
           "enumDescriptions": [
-            "Gemini 2.5 Flash - Latest, fastest model with free quota",
-            "Gemini 2.0 Flash (Experimental) - May have zero free quota",
+            "Gemini 2.5 Flash - Latest and fastest",
+            "Gemini 2.0 Flash - Stable, fast generation",
             "Gemini 1.5 Flash - Stable, fast generation",
-            "Gemini 1.5 Pro - Stable, advanced reasoning"
+            "Gemini 1.5 Pro - Advanced reasoning"
           ],
           "description": "Gemini model to use"
         },
@@ -128,7 +101,7 @@
         },
         "techBoss.maxTokens": {
           "type": "number",
-          "default": 2048,
+          "default": 8192,
           "description": "Maximum tokens to generate"
         }
       }
