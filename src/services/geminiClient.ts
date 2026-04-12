@@ -253,8 +253,8 @@ export class GeminiClient {
         } else if (status === 404) {
             throw new Error(`Model not found. Try updating the model in settings.`);
         } else if (status === 429) {
-            this.rateLimitedUntil = Date.now() + 15000;
-            throw new Error('⚠️ Rate limit exceeded. Retrying shortly...');
+            this.rateLimitedUntil = Date.now() + 30000;
+            throw new Error('⚠️ Rate limit exceeded. Please wait ~30 seconds and send your message again.');
         } else if (status && status >= 500) {
             throw new Error('Gemini API server error. Please try again later.');
         }

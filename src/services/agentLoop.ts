@@ -49,6 +49,11 @@ export class AgentLoop {
             while (iteration < maxIterations) {
                 iteration++;
 
+                // Throttle between iterations to avoid rate limits (free tier = 15 RPM)
+                if (iteration > 1) {
+                    await new Promise(resolve => setTimeout(resolve, 4000));
+                }
+
                 // Check if aborted
                 if (this.abortController.signal.aborted) {
                     this.emitEntry('error', '🛑 Agent stopped by user.');
