@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { GeminiCompletionProvider } from './providers/completionProvider';
 import { ChatViewProvider } from './providers/chatViewProvider';
 import { GeminiClient } from './services/geminiClient';
@@ -16,6 +15,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Gemini client (shared between completion and chat)
     const geminiClient = new GeminiClient();
+
+    // Get workspace root
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(
@@ -35,8 +37,8 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(completionProvider);
 
-    // Register chat view provider
-    chatViewProvider = new ChatViewProvider(context.extensionUri, geminiClient);
+    // Register chat view provider with workspace root
+    chatViewProvider = new ChatViewProvider(context.extensionUri, geminiClient, workspaceRoot);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             ChatViewProvider.viewType,
@@ -76,6 +78,8 @@ export function activate(context: vscode.ExtensionContext) {
                     'Gemini API key configured successfully!'
                 );
                 statusBarItem.text = "$(sparkle) Tech Boss (Ready)";
+                // Refresh client with new key
+                geminiClient.refreshClient();
             }
         }
     );
@@ -89,14 +93,14 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(openChatCommand);
 
-    const clearContextCommand = vscode.commands.registerCommand(
-        'techBoss.clearContext',
+    const newChatCommand = vscode.commands.registerCommand(
+        'techBoss.newChat',
         () => {
-            chatViewProvider.clearContext();
-            vscode.window.showInformationMessage('Context cleared');
+            chatViewProvider.resetChat();
+            vscode.window.showInformationMessage('New chat started');
         }
     );
-    context.subscriptions.push(clearContextCommand);
+    context.subscriptions.push(newChatCommand);
 
     // Check if API key is configured
     checkApiKeyConfiguration();
@@ -105,42 +109,10 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('techBoss')) {
                 checkApiKeyConfiguration();
+                geminiClient.refreshClient();
             }
         })
     );
-
-    const addSelectionCommand = vscode.commands.registerCommand('techBoss.addSelection', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage('No active editor');
-            return;
-        }
-
-        const selection = editor.selection;
-        if (selection.isEmpty) {
-            vscode.window.showErrorMessage('No text selected');
-            return;
-        }
-
-        const selectedText = editor.document.getText(selection);
-        const fileName = path.basename(editor.document.fileName);
-        
-        // Send to chat view
-        chatViewProvider.addSelectionToContext({
-            path: editor.document.fileName,
-            content: selectedText,
-            fileName: fileName,
-            isSelection: true,
-            selectionRange: {
-                start: editor.document.offsetAt(selection.start),
-                end: editor.document.offsetAt(selection.end)
-            }
-        });
-
-        vscode.window.showInformationMessage(`Added ${selectedText.split('\n').length} lines to context`);
-    });
-
-    context.subscriptions.push(addSelectionCommand);
 }
 
 function checkApiKeyConfiguration() {

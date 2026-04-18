@@ -22,3 +22,30 @@ export interface CacheEntry {
     completion: string;
     timestamp: number;
 }
+
+// --- Agent Types ---
+
+export type BlobHash = string;
+
+export interface ChatMessage {
+    id: string;
+    role: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error';
+    content: string;
+    toolName?: string;
+    toolParams?: any;
+    timestamp: number;
+    collapsed?: boolean;
+}
+
+export interface AgentConfig {
+    model: string;
+    maxIterations: number;
+    workspaceRoot: string;
+}
+
+export interface AgentMessage {
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error';
+    content: string;
+    toolName?: string;
+    toolParams?: any;
+}

@@ -1,233 +1,174 @@
 import * as vscode from 'vscode';
-import axios, { AxiosError } from 'axios';
-
-interface GeminiRequest {
-    contents: Array<{
-        parts: Array<{
-            text: string;
-        }>;
-    }>;
-    generationConfig: {
-        temperature: number;
-        maxOutputTokens: number;
-        topP?: number;
-        topK?: number;
-    };
-}
-
-interface GeminiResponse {
-    candidates: Array<{
-        content: {
-            parts: Array<{
-                text: string;
-            }>;
-        };
-        finishReason: string;
-    }>;
-}
+import { GoogleGenerativeAI, Content, Tool, GenerationConfig } from '@google/generative-ai';
 
 export class GeminiClient {
-    private baseURL = 'https://generativelanguage.googleapis.com/v1beta';
-    private apiKey: string = '';
-    private model: string = 'gemini-2.0-flash-exp';
-    private rateLimitedUntil: number = 0;  // ✅ NEW: Track cooldown
+    private genAI: GoogleGenerativeAI | null = null;
+    private rateLimitedUntil: number = 0;
 
     constructor() {
-        this.loadConfiguration();
+        this.initClient();
     }
 
-    private loadConfiguration() {
-        const config = vscode.workspace.getConfiguration('techBoss');
-        
-        // Try to get API key from VS Code settings first
-        this.apiKey = config.get<string>('apiKey', '');
-        
-        // Fallback to environment variable if not set in settings (for development)
-        if (!this.apiKey || this.apiKey.trim() === '') {
-            this.apiKey = process.env.GEMINI_API_KEY || '';
+    /** Initialize or re-initialize the GoogleGenerativeAI client */
+    private initClient(): void {
+        const apiKey = this.getApiKey();
+        if (apiKey) {
+            this.genAI = new GoogleGenerativeAI(apiKey);
         }
-        
-        // Get model with new default
-        this.model = config.get<string>('model', 'gemini-2.0-flash-exp');
     }
 
+    /** Get API key from VS Code settings or environment variable */
+    private getApiKey(): string {
+        const config = vscode.workspace.getConfiguration('techBoss');
+        let apiKey = config.get<string>('apiKey', '');
+        if (!apiKey || apiKey.trim() === '') {
+            apiKey = process.env.GEMINI_API_KEY || '';
+        }
+        return apiKey;
+    }
+
+    /** Get model name from settings */
+    private getModel(): string {
+        return vscode.workspace.getConfiguration('techBoss').get<string>('model', 'gemini-2.5-flash');
+    }
+
+    /**
+     * Get a simple text completion (used by completionProvider.ts for inline suggestions).
+     * Preserves the same interface as the original axios-based method.
+     */
     async getCompletion(prompt: string, retryCount = 0, signal?: AbortSignal): Promise<string> {
-        // ✅ NEW: Check if we're in cooldown period
+        // Check cooldown
         const now = Date.now();
         if (now < this.rateLimitedUntil) {
             const waitSeconds = Math.ceil((this.rateLimitedUntil - now) / 1000);
             throw new Error(`⏳ Rate limited. Please wait ${waitSeconds} more seconds.`);
         }
 
-        const config = vscode.workspace.getConfiguration('techBoss');
-        const apiKey = config.get<string>('apiKey');
-        const model = config.get<string>('model', 'gemini-2.0-flash-exp');
-        const temperature = config.get<number>('temperature', 0.7);
-        const maxTokens = config.get<number>('maxTokens', 2048);
-
-        if (!apiKey || apiKey.trim() === '') {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
             throw new Error('Gemini API key not configured. Run "Tech Boss: Configure API Key" command.');
         }
 
+        // Re-init if key changed
+        if (!this.genAI) { this.initClient(); }
+        if (!this.genAI) {
+            throw new Error('Failed to initialize Gemini client.');
+        }
+
+        const config = vscode.workspace.getConfiguration('techBoss');
+        const temperature = config.get<number>('temperature', 0.7);
+        const maxTokens = config.get<number>('maxTokens', 2048);
+
         try {
-            const response = await axios.post(
-                `${this.baseURL}/models/${this.model}:generateContent?key=${this.apiKey}`,
-                {
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature,
-                        maxOutputTokens: maxTokens,
-                        topP: 0.95,
-                        topK: 40
-                    }
+            const model = this.genAI.getGenerativeModel({
+                model: this.getModel(),
+                generationConfig: {
+                    temperature,
+                    maxOutputTokens: maxTokens,
+                    topP: 0.95,
+                    topK: 40,
                 },
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 30000,
-                    signal: signal
-                }
-            );
+            });
 
-            // ✅ Better validation
-            if (!response.data) {
-                console.error('No response data from Gemini');
-                throw new Error('Empty response from Gemini API');
-            }
+            const result = await model.generateContent(prompt);
+            const response = result.response;
+            const text = response.text();
 
-            if (!response.data.candidates || response.data.candidates.length === 0) {
-                console.error('Response data:', JSON.stringify(response.data, null, 2));
-                
-                // Check for specific error conditions
-                if (response.data.error) {
-                    throw new Error(`Gemini API Error: ${response.data.error.message}`);
-                }
-                
-                throw new Error('No candidates in response. The model may have blocked the content.');
-            }
-
-            const candidate = response.data.candidates[0];
-            
-            // ✅ Check for safety/content blocks
-            if (candidate.finishReason === 'SAFETY') {
-                throw new Error('Content was blocked by safety filters');
-            }
-            
-            if (candidate.finishReason === 'RECITATION') {
-                throw new Error('Content blocked due to recitation concerns');
-            }
-
-            if (!candidate.content) {
-                console.error('Candidate:', JSON.stringify(candidate, null, 2));
-                throw new Error('No content in candidate. Finish reason: ' + (candidate.finishReason || 'unknown'));
-            }
-
-            if (!candidate.content.parts || candidate.content.parts.length === 0) {
-                console.error('Content:', JSON.stringify(candidate.content, null, 2));
-                throw new Error('No parts in content');
-            }
-
-            const text = candidate.content.parts[0].text;
-            
             if (!text || text.trim().length === 0) {
                 throw new Error('Empty text in response');
             }
 
             return text;
-
         } catch (error: any) {
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError;
-                
-                if (axiosError.code === 'ECONNABORTED' || signal?.aborted) {
-                    throw new Error('Request aborted');
-                }
-
-                if (axiosError.response) {
-                    const status = axiosError.response.status;
-                    const data: any = axiosError.response.data;
-
-                    if (status === 400) {
-                        // Include detailed error message for debugging
-                        throw new Error(`Invalid request: ${data?.error?.message || 'Unknown error'}`);
-                    } else if (status === 401 || status === 403) {
-                        throw new Error('API key is invalid or unauthorized');
-                    } else if (status === 404) {
-                        throw new Error(`Model not found: ${this.model}. Try updating to a newer model.`);
-                    } else if (status === 429) {
-                        throw new Error('Rate limit exceeded. Please try again later.');
-                    } else if (status >= 500) {
-                        throw new Error('Gemini API server error. Please try again later.');
-                    }
-
-                    throw new Error(data?.error?.message || 'Gemini API error');
-                }
-
-                throw new Error('Network error: Unable to reach Gemini API');
+            if (signal?.aborted) {
+                throw new Error('Request aborted');
             }
 
-            // ✅ IMPROVED: Handle rate limiting
-            if (error.response?.status === 429) {
-                // Set cooldown for 90 seconds
+            // Handle rate limiting
+            if (error.message?.includes('429') || error.status === 429) {
                 this.rateLimitedUntil = Date.now() + 90000;
-                
                 console.log('⚠️ Rate limit hit. Cooldown set for 90 seconds.');
-                
-                // Only retry ONCE after waiting full 90 seconds
+
                 if (retryCount === 0) {
                     vscode.window.showWarningMessage(
-                        `⚠️ Rate limit exceeded. Waiting 90 seconds before retry...`,
+                        '⚠️ Rate limit exceeded. Waiting 90 seconds before retry...',
                         'Cancel'
                     );
-                    
                     await new Promise(resolve => setTimeout(resolve, 90000));
-                    
-                    // Clear cooldown and retry
                     this.rateLimitedUntil = 0;
-                    console.log('Retrying after 90 second cooldown...');
-                    
                     return this.getCompletion(prompt, retryCount + 1, signal);
                 }
-                
-                // If still rate limited after retry, give up
+
                 throw new Error('⚠️ Still rate limited. Please wait 2-3 minutes and try again.');
             }
 
-            // ✅ Better error handling for other statuses
-            if (error.response) {
-                const status = error.response.status;
-                const errorData = error.response.data;
-
-                switch (status) {
-                    case 400:
-                        throw new Error('Invalid request. Please check your prompt.');
-                    case 401:
-                        throw new Error('🔑 Invalid API key. Please reconfigure.');
-                    case 403:
-                        throw new Error('API access forbidden. Check your API key permissions.');
-                    case 500:
-                    case 503:
-                        throw new Error('Gemini service temporarily unavailable. Try again later.');
-                    default:
-                        throw new Error(`API error (${status}): ${errorData?.error?.message || 'Unknown error'}`);
-                }
+            // Handle other known errors
+            if (error.message?.includes('401') || error.message?.includes('403')) {
+                throw new Error('🔑 Invalid API key. Please reconfigure.');
             }
-
-            // Network errors
-            if (error.code === 'ECONNABORTED') {
-                throw new Error('Request timed out. Please try again.');
-            }
-
-            if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-                throw new Error('Network error. Check your internet connection.');
+            if (error.message?.includes('404')) {
+                throw new Error(`Model not found: ${this.getModel()}. Try updating to a newer model.`);
             }
 
             throw new Error(`Failed to get completion: ${error.message}`);
         }
     }
 
-    // ✅ NEW: Public method to check cooldown status
+    /**
+     * Multi-turn chat with function calling support.
+     * Used by the AgentLoop for autonomous tool-use conversations.
+     */
+    async chat(
+        contents: Content[],
+        tools: Tool[],
+        systemInstruction: string,
+        config?: Partial<GenerationConfig>
+    ): Promise<{
+        text: string | null;
+        functionCall: { name: string; args: any } | null;
+    }> {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error('Gemini API key not configured.');
+        }
+
+        if (!this.genAI) { this.initClient(); }
+        if (!this.genAI) {
+            throw new Error('Failed to initialize Gemini client.');
+        }
+
+        const model = this.genAI.getGenerativeModel({
+            model: this.getModel(),
+            systemInstruction,
+            tools,
+            generationConfig: {
+                maxOutputTokens: 8192,
+                ...config,
+            },
+        });
+
+        const result = await model.generateContent({ contents });
+        const response = result.response;
+        const candidate = response.candidates?.[0];
+
+        // Check for function calls first
+        for (const part of candidate?.content?.parts ?? []) {
+            if (part.functionCall) {
+                return {
+                    text: null,
+                    functionCall: {
+                        name: part.functionCall.name,
+                        args: part.functionCall.args,
+                    },
+                };
+            }
+        }
+
+        // Otherwise return text
+        return { text: response.text(), functionCall: null };
+    }
+
+    /** Check cooldown status */
     public getRateLimitCooldown(): number {
         const now = Date.now();
         if (now < this.rateLimitedUntil) {
@@ -236,9 +177,14 @@ export class GeminiClient {
         return 0;
     }
 
-    // ✅ NEW: Public method to clear cooldown (useful for testing)
+    /** Clear cooldown (useful for testing) */
     public clearCooldown(): void {
         this.rateLimitedUntil = 0;
         console.log('Cooldown cleared manually');
+    }
+
+    /** Re-initialize client (call when API key changes) */
+    public refreshClient(): void {
+        this.initClient();
     }
 }
